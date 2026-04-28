@@ -1,1 +1,32 @@
+# Environment
 .env
+.env.*
+!.env.example
+
+# Build binaries
+bin/
+build/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test artifacts
+*.test
+*.out
+coverage.out
+
+# Logs and temp files
+*.log
+tmp/
+temp/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
