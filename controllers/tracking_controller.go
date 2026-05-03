@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"pelayanan_publik/config"
 	"pelayanan_publik/models"
@@ -11,28 +12,46 @@ import (
 )
 
 // GET /api/tracking?reference_id=1&service_type=surat
-// User atau admin melihat riwayat tracking suatu layanan
+// User atau admin melihat riwayat tracking.
+// Query parameter bersifat opsional; jika kosong, akan mengembalikan semua data yang diizinkan.
 func GetTracking(c *gin.Context) {
-	referenceIDStr := c.Query("reference_id")
-	serviceType := c.Query("service_type")
+	referenceIDStr := strings.TrimSpace(c.Query("reference_id"))
+	serviceType := strings.TrimSpace(c.Query("service_type"))
+	role := c.GetString("role")
+	userID := c.GetUint("user_id")
 
-	if referenceIDStr == "" || serviceType == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "reference_id dan service_type wajib diisi"})
-		return
+	query := config.DB.Preload("Admin").Model(&models.Tracking{})
+
+	if serviceType != "" {
+		if serviceType != "surat" && serviceType != "pengaduan" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "service_type harus 'surat' atau 'pengaduan'"})
+			return
+		}
+		query = query.Where("service_type = ?", serviceType)
 	}
 
-	referenceID, err := strconv.Atoi(referenceIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "reference_id tidak valid"})
-		return
+	if referenceIDStr != "" {
+		referenceID, err := strconv.Atoi(referenceIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "reference_id tidak valid"})
+			return
+		}
+		query = query.Where("reference_id = ?", referenceID)
+	}
+
+	if role != "admin" {
+		suratSubQuery := config.DB.Model(&models.Surat{}).Select("id").Where("user_id = ?", userID)
+		pengaduanSubQuery := config.DB.Model(&models.Pengaduan{}).Select("id").Where("user_id = ?", userID)
+
+		query = query.Where(
+			"(service_type = ? AND reference_id IN (?)) OR (service_type = ? AND reference_id IN (?))",
+			"surat", suratSubQuery,
+			"pengaduan", pengaduanSubQuery,
+		)
 	}
 
 	var trackingList []models.Tracking
-	if err := config.DB.
-		Preload("Admin").
-		Where("reference_id = ? AND service_type = ?", referenceID, serviceType).
-		Order("created_at asc").
-		Find(&trackingList).Error; err != nil {
+	if err := query.Order("created_at asc").Find(&trackingList).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "gagal mengambil data tracking"})
 		return
 	}
