@@ -7,32 +7,50 @@ import (
 
 	"pelayanan_publik/config"
 	"pelayanan_publik/models"
+	"pelayanan_publik/services"
 
 	"github.com/gin-gonic/gin"
 )
 
 // POST /api/pengaduan — user membuat pengaduan
+// Content-Type: multipart/form-data
+// Fields: judul (required), deskripsi, kategori, lampiran (file, optional)
 func CreatePengaduan(c *gin.Context) {
 	userID := c.GetUint("user_id")
 
-	var input struct {
-		Judul     string `json:"judul"     binding:"required"`
-		Deskripsi string `json:"deskripsi"`
-		Kategori  string `json:"kategori"`
-		Lampiran  string `json:"lampiran"` // URL file (dari S3 jika sudah diintegrasikan)
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+	judul := c.PostForm("judul")
+	if judul == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "judul wajib diisi"})
 		return
+	}
+	deskripsi := c.PostForm("deskripsi")
+	kategori := c.PostForm("kategori")
+
+	var lampiranURL string
+	var lampiran *string
+	fileHeader, err := c.FormFile("lampiran")
+	if err == nil {
+		file, err := fileHeader.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "gagal membaca file"})
+			return
+		}
+		defer file.Close()
+
+		lampiranURL, err = services.UploadFile(file, fileHeader, "files")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "gagal upload file: " + err.Error()})
+			return
+		}
+		lampiran = &lampiranURL
 	}
 
 	pengaduan := models.Pengaduan{
 		UserID:    userID,
-		Judul:     input.Judul,
-		Deskripsi: input.Deskripsi,
-		Kategori:  input.Kategori,
-		Lampiran:  input.Lampiran,
+		Judul:     judul,
+		Deskripsi: deskripsi,
+		Kategori:  kategori,
+		Lampiran:  lampiran,
 		Status:    "open",
 	}
 

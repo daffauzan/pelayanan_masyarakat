@@ -84,11 +84,13 @@ func Login(c *gin.Context) {
 
 	var user models.User
 	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+		log.Printf("Login: email '%s' tidak ditemukan: %v", input.Email, err)
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "email atau password salah"})
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
+		log.Printf("Login: password salah untuk email '%s': %v", input.Email, err)
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "email atau password salah"})
 		return
 	}
