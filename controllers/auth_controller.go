@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"log"
 	"net/http"
 
 	"pelayanan_publik/config"
 	"pelayanan_publik/models"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -17,12 +19,12 @@ func Register(c *gin.Context) {
 		Nama     string `json:"nama"     binding:"required"`
 		Email    string `json:"email"    binding:"required,email"`
 		Password string `json:"password" binding:"required,min=6"`
-		NIK      string `json:"nik"      binding:"required,len=16"`
 		NoTelp   string `json:"no_telp"`
 		Alamat   string `json:"alamat"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
+		log.Printf("register validation failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
@@ -45,13 +47,13 @@ func Register(c *gin.Context) {
 		Nama:     input.Nama,
 		Email:    input.Email,
 		Password: string(hashed),
-		NIK:      input.NIK,
 		NoTelp:   input.NoTelp,
 		Alamat:   input.Alamat,
 		Role:     "user",
 	}
 
 	if err := config.DB.Create(&user).Error; err != nil {
+		log.Printf("register create user failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "gagal mendaftarkan user"})
 		return
 	}
@@ -91,20 +93,65 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	token, err := config.GenerateToken(user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "gagal membuat token"})
+	session := sessions.Default(c)
+	session.Set("user_id", user.ID)
+	session.Set("role", user.Role)
+
+	if err := session.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "gagal membuat session"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "login berhasil",
-		"token":   token,
 		"data": gin.H{
 			"id":    user.ID,
 			"nama":  user.Nama,
 			"email": user.Email,
 			"role":  user.Role,
+		},
+	})
+}
+
+// Logout godoc
+// POST /api/auth/logout
+func Logout(c *gin.Context) {
+	session := sessions.Default(c)
+	session.Clear()
+	session.Options(sessions.Options{
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+	})
+
+	if err := session.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "gagal menghapus session"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "logout berhasil"})
+}
+
+// Profile godoc
+// GET /api/auth/profile
+func Profile(c *gin.Context) {
+	userID := c.GetUint("user_id")
+
+	var user models.User
+	if err := config.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "user tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "profil berhasil diambil",
+		"data": gin.H{
+			"id":      user.ID,
+			"nama":    user.Nama,
+			"email":   user.Email,
+			"no_telp": user.NoTelp,
+			"alamat":  user.Alamat,
+			"role":    user.Role,
 		},
 	})
 }

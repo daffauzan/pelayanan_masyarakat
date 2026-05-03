@@ -2,47 +2,78 @@ package middleware
 
 import (
 	"net/http"
+	"strconv"
 
-	"strings"
-
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
-
-var jwtSecret = []byte("your_secret_key")
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
+		session := sessions.Default(c)
+		userIDValue := session.Get("user_id")
+		roleValue := session.Get("role")
 
-		if authHeader == "" {
+		userID, ok := toUint(userIDValue)
+		if !ok || roleValue == nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"message": "authorization header required",
+				"message": "session tidak valid atau belum login",
 			})
 			c.Abort()
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
-		})
-
-		if err != nil || !token.Valid {
+		role, ok := roleValue.(string)
+		if !ok || role == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"message": "invalid token",
+				"message": "session role tidak valid",
 			})
 			c.Abort()
 			return
 		}
 
-		claims := token.Claims.(jwt.MapClaims)
-
-		c.Set("user_id", uint(claims["user_id"].(float64)))
-		c.Set("role", claims["role"].(string))
+		c.Set("user_id", userID)
+		c.Set("role", role)
 
 		c.Next()
+	}
+}
+
+func toUint(value interface{}) (uint, bool) {
+	switch typed := value.(type) {
+	case uint:
+		return typed, true
+	case uint8:
+		return uint(typed), true
+	case uint16:
+		return uint(typed), true
+	case uint32:
+		return uint(typed), true
+	case uint64:
+		return uint(typed), true
+	case int:
+		if typed < 0 {
+			return 0, false
+		}
+		return uint(typed), true
+	case int64:
+		if typed < 0 {
+			return 0, false
+		}
+		return uint(typed), true
+	case float64:
+		if typed < 0 {
+			return 0, false
+		}
+		return uint(typed), true
+	case string:
+		parsed, err := strconv.ParseUint(typed, 10, 64)
+		if err != nil {
+			return 0, false
+		}
+		return uint(parsed), true
+	default:
+		return 0, false
 	}
 }
 

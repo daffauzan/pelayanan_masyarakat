@@ -17,6 +17,8 @@ func SetupRoutes(r *gin.Engine) {
 	{
 		auth.POST("/register", controllers.Register)
 		auth.POST("/login", controllers.Login)
+		auth.POST("/logout", controllers.Logout)
+		auth.GET("/profile", middleware.AuthMiddleware(), controllers.Profile)
 	}
 
 	// User routes — perlu login

@@ -29,7 +29,7 @@ func UploadFile(file multipart.File, header *multipart.FileHeader, folder string
 		return "", fmt.Errorf("gagal upload ke S3: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/%s", config.GetCloudFrontURL(), key)
+	url := fmt.Sprintf("%s/%s", config.GetObjectBaseURL(), key)
 	return url, nil
 }
 
