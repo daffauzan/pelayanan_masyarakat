@@ -8,12 +8,17 @@ import (
 )
 
 func CreatePengaduan(userID uint, judul, deskripsi, kategori, lampiran string) (*models.Pengaduan, error) {
+	var lampiranPtr *string
+	if lampiran != "" {
+		lampiranPtr = &lampiran
+	}
+
 	pengaduan := models.Pengaduan{
 		UserID:    userID,
 		Judul:     judul,
 		Deskripsi: deskripsi,
 		Kategori:  kategori,
-		Lampiran:  lampiran,
+		Lampiran:  lampiranPtr,
 		Status:    "open",
 	}
 

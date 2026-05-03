@@ -8,7 +8,7 @@ type Pengaduan struct {
 	Judul          string `gorm:"size:255;not null"`
 	Deskripsi      string `gorm:"type:text"`
 	Kategori       string `gorm:"size:100"`
-	Lampiran       string
+	Lampiran       *string
 	Status         string `gorm:"default:'open'"`
 	TanggapanAdmin string `gorm:"type:text"`
 	ResolvedAt     *time.Time

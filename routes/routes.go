@@ -52,6 +52,7 @@ func SetupRoutes(r *gin.Engine) {
 		admin.PUT("/pengaduan/:id", controllers.UpdateStatusPengaduan)
 
 		// Tracking
+		admin.GET("/tracking", controllers.GetTracking)
 		admin.POST("/tracking", controllers.AddTracking)
 	}
 }
