@@ -10,6 +10,10 @@ import (
 func SetupRoutes(r *gin.Engine) {
 	r.Use(middleware.CORSMiddleware())
 
+	r.GET("/api/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
 	api := r.Group("/api")
 
 	// Auth — public
